@@ -1,8 +1,68 @@
-<html>
-  <head>
+<!DOCTYPE html>
+<html lang="en">
 
-  </head>
-  <body>
-    Hello
-  </body>
+<head>
+  <title>comment-parser playground</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.58.3/codemirror.min.css"
+    integrity="sha512-xIf9AdJauwKIVtrVRZ0i4nHP61Ogx9fSRAkCLecmE2dL/U8ioWpDvFCAy4dcfecN72HHB9+7FfQj3aiO68aaaw=="
+    crossorigin="anonymous" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.58.3/addon/fold/foldgutter.min.css"
+    integrity="sha512-YwkMTlTHn8dBnwa47IF+cKsS00HPiiVhQ4DpwT1KF2gUftfFR7aefepabSPLAs6zrMyD89M3w0Ow6mQ5XJEUCw=="
+    crossorigin="anonymous" />
+    
+  <link rel="stylesheet" href="index.css" />
+</head>
+
+<body>
+  <header>
+    <h1>
+      <a href="https://github.com/syavorsky/comment-parser">comment-parser</a> playground
+    </h1>
+    <select class="ed-title"></select>
+    <span class="star-button">
+      <!-- Place this tag where you want the button to render. -->
+      <a class="github-button" href="https://github.com/syavorsky/comment-parser" 
+        data-icon="octicon-star" data-show-count="true" aria-label="Star syavorsky/comment-parser on GitHub">Star</a>
+    </span>
+    <!--p>
+      comment-parser is a library helping to parse and render generic JSDoc-style comments.
+    </p-->
+  </header>
+  <section class="ed-source">
+    <textarea></textarea>
+  </section>
+  <section class="ed-parsed">
+    <textarea></textarea>
+    <span class="ed-title">parsed</span>
+  </section>
+  <section class="ed-stringified">
+    <textarea></textarea>
+    <span class="ed-title">strigified</span>
+  </section>
+
+  <script async defer src="https://buttons.github.io/buttons.js"></script>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.58.3/codemirror.min.js"
+    integrity="sha512-zuvaVNiXwWY7U7HEdXsoTislTEElpKLELFoyQw0Bg7zfGhC4vG8eAhCxIQAvHmprW7dFhTq5zshUko4K3B4mSA=="
+    crossorigin="anonymous"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.58.3/addon/fold/foldcode.min.js"
+    integrity="sha512-IjSd8OJ9rx/3rtJvCpNXNMYMup2xlV8WdxLFzMw747Zbs2oFBYollKnJXBSGOySjxg/ef7tkKAra5GdytefQEg=="
+    crossorigin="anonymous"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.58.3/addon/fold/foldgutter.min.js"
+    integrity="sha512-Yhrn0zU9jQBETdu3RUw6Rl+pSPWNl8xDxjiJkds2xNQapiaCiBX0et1ecl8VqUM421uWRwoa0ynzZ5knY8zt9w=="
+    crossorigin="anonymous"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.58.3/addon/fold/brace-fold.min.js"
+    integrity="sha512-lRucjkRFOyLnBUVYu+pOnzkFCVTp5zi1l9ZwfzvcGVpW1StrTD3yynZMIQRat6UOv9YtC0zEOkr+y9yYkzhiLA=="
+    crossorigin="anonymous"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.58.3/mode/javascript/javascript.min.js"
+    integrity="sha512-EKqHN1wvffwb5Hx+y5JeXPGNDKKxxW1Es4hexkgSf+QkQwEDNs6bp4KKCRNVLUbRPGkrDQ7yEVwvDg1tq7n1fA=="
+    crossorigin="anonymous"></script>
+
+  <script src="examples.js"></script>
+  <script src="lib/index.js"></script>
+  <script src="index.js"></script>
+</body>
+
 </html>
