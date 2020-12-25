@@ -1,13 +1,16 @@
-function parse_defaults(source, parse, stringify) {
+// This file is a source for playground examples.
+// Examples integrity is smoke-checked with examples.spec.js
+
+function parse_defaults(source, parse, stringify, transforms) {
   // Invoking parser with default config covers the most genearic cases.
   // Note how /*** and /* blocks are ignored
 
   /** One-liner */
-    
+
   /** @some-tag {someType} someName */
-  
+
   /**
-   * Description may go 
+   * Description may go
    * over multiple lines followed by @tags
    * @param {string} name the name parameter
    * @param {any} value the value parameter
@@ -16,11 +19,11 @@ function parse_defaults(source, parse, stringify) {
   /*** ignored */
   /* ignored */
 
-  const parsed = parse(source)
-  const stringified = parsed.map(block => stringify(block))
+  const parsed = parse(source);
+  const stringified = parsed.map((block) => stringify(block));
 }
 
-function parse_line_numbering(source, parse, stringify) {
+function parse_line_numbering(source, parse, stringify, transforms) {
   // Note, line numbers are off by 5 from what you see in editor
   //
   // Try changeing start line back to 0, or omit the option
@@ -28,20 +31,20 @@ function parse_line_numbering(source, parse, stringify) {
   // parse(source, {startLine: 5}) -- enforce alternative start number
 
   /**
-   * Description may go 
+   * Description may go
    * over multiple lines followed by @tags
    * @param {string} name the name parameter
    * @param {any} value the value parameter
    */
 
-  const parsed = parse(source, {startLine: 5})
+  const parsed = parse(source, { startLine: 5 });
   const stringified = parsed[0].tags
-    .map(tag => `line ${tag.source[0].number + 1} : @${tag.tag} ${tag.name}`)
-    .join('\n')
+    .map((tag) => `line ${tag.source[0].number + 1} : @${tag.tag} ${tag.name}`)
+    .join('\n');
 }
 
-function parse_spacing(source, parse, stringify) {
-  // Note, when spacing option is set to 'compact' or omited, tag and block descriptions are collapsed to look like a single sentense. 
+function parse_spacing(source, parse, stringify, transforms) {
+  // Note, when spacing option is set to 'compact' or omited, tag and block descriptions are collapsed to look like a single sentense.
   //
   // Try changeing it to 'preserve' or defining custom function
   // parse(source, {spacing: 'compact'}) -- default
@@ -53,21 +56,20 @@ function parse_spacing(source, parse, stringify) {
   // }) -- mimic 'compact' implementation
 
   /**
-   * Description may go 
+   * Description may go
    * over multiple lines followed by
    * @param {string} name the name parameter
    *   with multiline description
    */
 
-  const parsed = parse(source, {spacing: 'preserve'})
+  const parsed = parse(source, { spacing: 'preserve' });
   const stringified = parsed[0].tags
-    .map(tag => `@${tag.tag} - ${tag.description}`)
-    .join('\n')
+    .map((tag) => `@${tag.tag} - ${tag.description}`)
+    .join('\n');
 }
 
-
-function parse_escaping(source, parse, stringify) {
-  // Note, @decorator is not parsed as another tag because block is wrapped into ###. 
+function parse_escaping(source, parse, stringify, transforms) {
+  // Note, @decorator is not parsed as another tag because block is wrapped into ###.
   //
   // Try setting alternative escape sequence
   // parse(source, {fence: '```'}) -- default
@@ -82,27 +84,30 @@ function parse_escaping(source, parse, stringify) {
   }
   ###
    */
-  
-  const parsed = parse(source, {fence: '###'})
+
+  const parsed = parse(source, { fence: '###' });
   const stringified = parsed[0].tags
-    .map(tag => `@${tag.tag} - ${tag.description}`)
-    .join('\n')
+    .map((tag) => `@${tag.tag} - ${tag.description}`)
+    .join('\n');
 }
 
-function stringify_formatting(source, parse, stringify) {
-  // stringify preserves exact formatting be default, see how behavior is changes with:
-  // stringify(parsed[0], {format: 'none'}) -- default
-  // stringify(parsed[0], {format: 'align'}) -- align name, type, and description
+function stringify_formatting(source, parse, stringify, transforms) {
+  // stringify preserves exact formatting by default, but you can transform parsing result first
+  // transform = align() -- align name, type, and description
+  // transform = flow(align(), indent(4)) -- align, then place the block's opening marker at pos 4
 
   /**
-   * Description may go 
+   * Description may go
    * over multiple lines followed by @tags
    * @param {string} name the name parameter
    * @param {any} value the value parameter
    */
 
-  const parsed = parse(source)
-  const stringified = stringify(parsed[0], {format: 'align'})
+  const { flow, align, indent } = transforms;
+  const transform = flow(align(), indent(4));
+
+  const parsed = parse(source);
+  const stringified = stringify(transform(parsed[0]));
 }
 
 (typeof window === 'undefined' ? module.exports : window).examples = [
@@ -111,4 +116,4 @@ function stringify_formatting(source, parse, stringify) {
   parse_escaping,
   parse_spacing,
   stringify_formatting,
-]
+];

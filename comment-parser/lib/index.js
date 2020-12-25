@@ -352,6 +352,57 @@ var CommentParser = (function (exports) {
         };
     }
 
+    function join(tokens) {
+        return (tokens.start +
+            tokens.delimiter +
+            tokens.postDelimiter +
+            tokens.tag +
+            tokens.postTag +
+            tokens.type +
+            tokens.postType +
+            tokens.name +
+            tokens.postName +
+            tokens.description +
+            tokens.end);
+    }
+    function getStringifier() {
+        return function (block) {
+            return block.source.map(function (_a) {
+                var tokens = _a.tokens;
+                return join(tokens);
+            }).join('\n');
+        };
+    }
+
+    var pull = function (offset) { return function (str) { return str.slice(offset); }; };
+    var push = function (offset) {
+        var space = ''.padStart(offset, ' ');
+        return function (str) { return str + space; };
+    };
+    function indent(pos) {
+        var shift;
+        var pad = function (start) {
+            if (shift === undefined) {
+                var offset = pos - start.length;
+                shift = offset > 0 ? push(offset) : pull(-offset);
+            }
+            return shift(start);
+        };
+        var update = function (line) {
+            line.tokens.start = pad(line.tokens.start);
+            return line;
+        };
+        return function (_a) {
+            var description = _a.description, tags = _a.tags, source = _a.source, problems = _a.problems;
+            return ({
+                description: description,
+                problems: problems,
+                tags: tags,
+                source: source.map(update),
+            });
+        };
+    }
+
     var __assign$1 = (window && window.__assign) || function () {
         __assign$1 = Object.assign || function(t) {
             for (var s, i = 1, n = arguments.length; i < n; i++) {
@@ -363,127 +414,108 @@ var CommentParser = (function (exports) {
         };
         return __assign$1.apply(this, arguments);
     };
-    function getStringifier(_a) {
-        var _b = (_a === void 0 ? {} : _a).format, format = _b === void 0 ? 'none' : _b;
-        var formatter = getFormatter(format);
-        return function (block) {
-            return block.source
-                .map(function (_a) {
-                var tokens = _a.tokens;
-                return formatter(tokens);
-            })
-                .reduce(function (acc, lines) { return acc.concat(lines); }, []) //flatmap
-                .join('\n');
-        };
-    }
-    function getFormatter(formatter) {
-        if (formatter === 'none')
-            return noneFormatter;
-        if (formatter === 'align')
-            return alignFormatter();
-        return formatter;
-    }
-    function noneFormatter(tokens) {
-        return [
-            tokens.start +
-                tokens.delimiter +
-                tokens.postDelimiter +
-                tokens.tag +
-                tokens.postTag +
-                tokens.type +
-                tokens.postType +
-                tokens.name +
-                tokens.postName +
-                tokens.description +
-                tokens.end,
-        ];
-    }
-    function alignFormatter() {
-        var buffer = [];
-        var zeroWidth = {
-            start: 0,
-            tag: 0,
-            type: 0,
-            name: 0,
-        };
-        var getWidth = function (w, t) { return ({
+    var __rest = (window && window.__rest) || function (s, e) {
+        var t = {};
+        for (var p in s) if (Object.prototype.hasOwnProperty.call(s, p) && e.indexOf(p) < 0)
+            t[p] = s[p];
+        if (s != null && typeof Object.getOwnPropertySymbols === "function")
+            for (var i = 0, p = Object.getOwnPropertySymbols(s); i < p.length; i++) {
+                if (e.indexOf(p[i]) < 0 && Object.prototype.propertyIsEnumerable.call(s, p[i]))
+                    t[p[i]] = s[p[i]];
+            }
+        return t;
+    };
+    var zeroWidth = {
+        start: 0,
+        tag: 0,
+        type: 0,
+        name: 0,
+    };
+    var getWidth = function (w, _a) {
+        var t = _a.tokens;
+        return ({
             start: t.delimiter === Markers.start ? t.start.length : w.start,
             tag: Math.max(w.tag, t.tag.length),
             type: Math.max(w.type, t.type.length),
             name: Math.max(w.name, t.name.length),
-        }); };
-        return function (tokens) {
-            buffer.push(tokens);
-            if (!tokens.end.endsWith(Markers.end))
-                return [];
-            // if (buffer.length === 1) {
-            //   return [
-            //     buffer[0].start +
-            //       buffer[0].delimiter +
-            //       buffer[0].postDelimiter +
-            //       buffer[0].tag +
-            //       buffer[0].postTag +
-            //       buffer[0].type +
-            //       buffer[0].postType +
-            //       buffer[0].name +
-            //       buffer[0].postName +
-            //       buffer[0].description +
-            //       buffer[0].end,
-            //   ];
-            // }
-            var w = buffer.reduce(getWidth, __assign$1({}, zeroWidth));
-            var postDelimiter = ' ';
-            var lines = [];
-            var intoTags = false;
-            for (var _i = 0, buffer_1 = buffer; _i < buffer_1.length; _i++) {
-                var t = buffer_1[_i];
-                if (t.tag !== '')
-                    intoTags = true;
-                var isEmpty = t.tag === '' && t.name === '' && t.type === '' && t.description === '';
-                // if it's a dangling '*/'
-                if (t.end !== '' && isEmpty) {
-                    lines.push(''.padStart(w.start + 1) + t.end);
-                    continue;
-                }
-                var start = void 0, delimiter = void 0;
-                switch (t.delimiter) {
-                    case Markers.start:
-                        start = ''.padStart(w.start);
-                        delimiter = t.delimiter;
-                        break;
-                    case Markers.delim:
-                        start = ''.padStart(w.start + 1);
-                        delimiter = t.delimiter;
-                        break;
-                    default:
-                        start = ''.padStart(w.start + 2);
-                        delimiter = '';
-                }
-                // align the tag tokens or skip them if we haven't gotten into the tags yet
-                var tag = intoTags
-                    ? t.tag.padEnd(w.tag + 1) +
-                        t.type.padEnd(w.type + 1) +
-                        t.name.padEnd(w.name + 1)
-                    : t.tag + t.type + t.name;
-                var line = start + delimiter + postDelimiter + tag + t.description + t.end;
-                lines.push(line.trimRight());
+        });
+    };
+    //  /**
+    //   * Description may go
+    //   * over multiple lines followed by @tags
+    //   *
+    //* @my-tag {my.type} my-name description line 1
+    //      description line 2
+    //      * description line 3
+    //   */
+    var space = function (len) { return ''.padStart(len, ' '); };
+    function align() {
+        var intoTags = false;
+        var w;
+        function update(line) {
+            var tokens = __assign$1({}, line.tokens);
+            if (tokens.tag !== '')
+                intoTags = true;
+            var isEmpty = tokens.tag === '' &&
+                tokens.name === '' &&
+                tokens.type === '' &&
+                tokens.description === '';
+            // dangling '*/'
+            if (tokens.end === Markers.end && isEmpty) {
+                tokens.start = space(w.start + 1);
+                return __assign$1(__assign$1({}, line), { tokens: tokens });
             }
-            buffer = [];
-            return lines;
+            switch (tokens.delimiter) {
+                case Markers.start:
+                    tokens.start = space(w.start);
+                    break;
+                case Markers.delim:
+                    tokens.start = space(w.start + 1);
+                    break;
+                default:
+                    tokens.start = space(w.start + 3);
+                    tokens.delimiter = '';
+            }
+            if (intoTags) {
+                tokens.postTag = space(w.tag - tokens.tag.length + 1);
+                tokens.postType = space(w.type - tokens.type.length + 1);
+                tokens.postName = space(w.name - tokens.name.length + 1);
+            }
+            return __assign$1(__assign$1({}, line), { tokens: tokens });
+        }
+        return function (_a) {
+            var source = _a.source, fields = __rest(_a, ["source"]);
+            w = source.reduce(getWidth, __assign$1({}, zeroWidth));
+            return __assign$1(__assign$1({}, fields), { source: source.map(update) });
         };
     }
+
+    function flow() {
+        var transforms = [];
+        for (var _i = 0; _i < arguments.length; _i++) {
+            transforms[_i] = arguments[_i];
+        }
+        return function (block) {
+            return transforms.reduce(function (block, t) { return t(block); }, block);
+        };
+    }
+
+    var index = /*#__PURE__*/Object.freeze({
+        __proto__: null,
+        flow: flow,
+        indent: indent,
+        align: align
+    });
 
     function parse(source, options) {
         if (options === void 0) { options = {}; }
         return getParser$3(options)(source);
     }
-    function stringify(block, options) {
-        if (options === void 0) { options = {}; }
-        return getStringifier(options)(block);
-    }
+    var stringify = getStringifier();
 
     exports.parse = parse;
     exports.stringify = stringify;
+    exports.transforms = index;
 
     Object.defineProperty(exports, '__esModule', { value: true });
 
