@@ -1,8 +1,11 @@
 :root {
-  --color-bg-dark: #24292e;
-  --color-fg-light: #fff;
   --color-fg-dark: #333;
+  --color-bg-light: #fff;
+  --color-fg-light: #fff;
+  --color-bg-dark: #24292e;
   --color-fg-ligt-link: #69afff;
+  --color-bg-error: rgb(218, 108, 108);
+  --color-bg-gray: #eee;
 }
 
 * {
@@ -79,11 +82,54 @@ section.ed-source[data-message]::after {
   content: "Invalid code: " attr(data-message);
   position:absolute;
   left: 0; bottom: 0;
-  padding: 1em;
+  padding: .7em 1em;
   width: 100%;
   z-index: 2;
+  color: #000;
+  background: var(--color-bg-error);
+}
+
+.ed-title {
+  position: absolute;
+  display: inline-block;
+  top: 0;
+  right: 0;
+  padding: .2em .7em;
+  text-align: right;
+  line-height: 1.2em;;
+  color: #666;
+  background: #eee;
+  z-index: 1;
+}
+.ed-title::before {
+  content: "?";
+  display: inline-block;
+  float: right;
+  margin: .1em 0 0 .3em;
+  width: 1.2em;
+  height: 1.2em;
+  line-height: 1.5em;
+  text-align: center;
+  font-size: .8em;
   color: #fff;
-  background: rgb(218, 108, 108);
+  background: rgba(0,0,0,.25);
+  border-radius: 50%;
+}
+.ed-title::after {
+  content: attr(data-help);
+  display: none;
+  margin: 0.5em 0;
+  float: left;
+  max-width: 90%;
+  text-align: left;
+}
+.ed-title:hover {
+  display: block;
+  width: 100%;
+  color: #000;
+}
+.ed-title:hover::after {
+  display: block;
 }
 
 .star-button {

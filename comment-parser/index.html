@@ -20,7 +20,7 @@
     <h1>
       <a href="https://github.com/syavorsky/comment-parser">comment-parser</a> playground
     </h1>
-    <select class="ed-title"></select>
+    <select></select>
     <span class="star-button">
       <!-- Place this tag where you want the button to render. -->
       <a class="github-button" href="https://github.com/syavorsky/comment-parser" 
@@ -32,14 +32,15 @@
   </header>
   <section class="ed-source">
     <textarea></textarea>
+    <span class="ed-title" data-help="This pane is an editor for parse/stringify calls and same time it is a source of comments to be parsed">source</span>
   </section>
   <section class="ed-parsed">
     <textarea></textarea>
-    <span class="ed-title">parsed</span>
+    <span class="ed-title" data-help="This pane displays the result of showParsed() call">parsed</span>
   </section>
   <section class="ed-stringified">
     <textarea></textarea>
-    <span class="ed-title">strigified</span>
+    <span class="ed-title" data-help="This pane displays the result of showStringified() call">stringified</span>
   </section>
 
   <script async defer src="https://buttons.github.io/buttons.js"></script>

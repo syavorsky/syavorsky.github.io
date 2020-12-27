@@ -141,7 +141,7 @@
     select.appendChild(option)
     if (name === currentExample.name) select.selectedIndex = i
     return select
-  }, document.querySelector('select.ed-title'))
+  }, document.querySelector('select'))
   
   select.addEventListener('change', e => {
     gotoExample(examples[e.target.selectedIndex])
