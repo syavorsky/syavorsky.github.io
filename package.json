@@ -1,0 +1,22 @@
+{
+  "name": "syavorsky.github.io",
+  "version": "1.0.0",
+  "description": "docs for https://github.com/syavorsky prjects",
+  "main": "index.html",
+  "scripts": {
+    "test": "echo 'good enough ;)' && exit 0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/syavorsky/syavorsky.github.io.git"
+  },
+  "author": "Sergiy Yavorsky",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/syavorsky/syavorsky.github.io/issues"
+  },
+  "homepage": "https://github.com/syavorsky/syavorsky.github.io#readme",
+  "dependencies": {
+    "comment-parser": "^1.0.0"
+  }
+}
