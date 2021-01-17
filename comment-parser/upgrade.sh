@@ -9,12 +9,11 @@ cd $(cd $(dirname $0/..); pwd)
 
 npm install "comment-parser@$VER"
 
-mkdir -p comment-parser/lib/
-cp node_modules/comment-parser/{browser/index.js,tests/e2e/examples.js} ./comment-parser/lib/
+. ./comment-parser/build.sh
 
 echo "$VER" > ./comment-parser/lib/VERSION
 
 sed -i '' -e 's#<span data-version>.*</span>#<span data-version>@'"$VER"'</span>#g' comment-parser/index.html
 
-git diff
+# git diff
 git ci -m "upgrade to comment-parser@$VER" package.json package-lock.json comment-parser/lib 

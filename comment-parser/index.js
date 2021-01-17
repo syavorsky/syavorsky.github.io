@@ -1,7 +1,7 @@
 (function playground() {
 
   const updateDelay = 1000;
-  const { parse, stringify, transforms } = CommentParser;
+  const { parse, stringify, transforms, tokenizers } = CommentParser;
   const nav = examples.reduce((nav, example) => ({
     ...nav, [name2hash(example.name)]: example
   }), {})
@@ -56,8 +56,8 @@
 
   function runExample(source) {
     try {
-      const example = new Function(['source', 'parse', 'stringify', 'transforms', 'showParsed', 'showStringified'], source.trim());
-      example(source, parse, stringify, transforms, showParsed, showStringified);
+      const example = new Function(['source', 'parse', 'stringify', 'transforms', 'tokenizers', 'showParsed', 'showStringified'], source.trim());
+      example(source, parse, stringify, transforms, tokenizers, showParsed, showStringified);
       sourceMessage('')
     } catch (err) {
       console.log('source is not valid:', err);
