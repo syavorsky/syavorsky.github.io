@@ -1,22 +1,11 @@
 var CommentParser = (function (exports) {
     'use strict';
 
-    var __assign = (window && window.__assign) || function () {
-        __assign = Object.assign || function(t) {
-            for (var s, i = 1, n = arguments.length; i < n; i++) {
-                s = arguments[i];
-                for (var p in s) if (Object.prototype.hasOwnProperty.call(s, p))
-                    t[p] = s[p];
-            }
-            return t;
-        };
-        return __assign.apply(this, arguments);
-    };
     function isSpace(source) {
         return /^\s+$/.test(source);
     }
     function splitSpace(source) {
-        var matches = source.match(/^\s+/);
+        const matches = source.match(/^\s+/);
         return matches == null
             ? ['', source]
             : [source.slice(0, matches[0].length), source.slice(matches[0].length)];
@@ -24,90 +13,38 @@ var CommentParser = (function (exports) {
     function splitLines(source) {
         return source.split(/\r?\n/);
     }
-    function seedSpec(spec) {
-        if (spec === void 0) { spec = {}; }
-        return __assign({ tag: '', name: '', type: '', optional: false, description: '', problems: [], source: [] }, spec);
+    function seedSpec(spec = {}) {
+        return Object.assign({ tag: '', name: '', type: '', optional: false, description: '', problems: [], source: [] }, spec);
     }
-    function seedTokens(tokens) {
-        if (tokens === void 0) { tokens = {}; }
-        return __assign({ start: '', delimiter: '', postDelimiter: '', tag: '', postTag: '', name: '', postName: '', type: '', postType: '', description: '', end: '' }, tokens);
+    function seedTokens(tokens = {}) {
+        return Object.assign({ start: '', delimiter: '', postDelimiter: '', tag: '', postTag: '', name: '', postName: '', type: '', postType: '', description: '', end: '' }, tokens);
     }
+    /**
+     * Assures Block.tags[].source contains references to the Block.source items,
+     * using Block.source as a source of truth. This is a counterpart of rewireSpecs
+     * @param block parsed coments block
+     */
     function rewireSource(block) {
-        var source = block.source.reduce(function (acc, line) { return acc.set(line.number, line); }, new Map());
-        for (var _i = 0, _a = block.tags; _i < _a.length; _i++) {
-            var spec = _a[_i];
-            spec.source = spec.source.map(function (line) { return source.get(line.number); });
+        const source = block.source.reduce((acc, line) => acc.set(line.number, line), new Map());
+        for (const spec of block.tags) {
+            spec.source = spec.source.map((line) => source.get(line.number));
         }
         return block;
     }
 
-    var Markers;
-    (function (Markers) {
-        Markers["start"] = "/**";
-        Markers["nostart"] = "/***";
-        Markers["delim"] = "*";
-        Markers["end"] = "*/";
-    })(Markers || (Markers = {}));
-
-    function getParser(_a) {
-        var _b = (_a === void 0 ? {} : _a).startLine, startLine = _b === void 0 ? 0 : _b;
-        var block = null;
-        var num = startLine;
-        return function parseSource(source) {
-            var _a, _b, _c;
-            var rest = source;
-            var tokens = seedTokens();
-            _a = splitSpace(rest), tokens.start = _a[0], rest = _a[1];
-            if (block === null &&
-                rest.startsWith(Markers.start) &&
-                !rest.startsWith(Markers.nostart)) {
-                block = [];
-                tokens.delimiter = rest.slice(0, Markers.start.length);
-                rest = rest.slice(Markers.start.length);
-                _b = splitSpace(rest), tokens.postDelimiter = _b[0], rest = _b[1];
-            }
-            if (block === null) {
-                num++;
-                return null;
-            }
-            var isClosed = rest.trimRight().endsWith(Markers.end);
-            if (tokens.delimiter === '' &&
-                rest.startsWith(Markers.delim) &&
-                !rest.startsWith(Markers.end)) {
-                tokens.delimiter = Markers.delim;
-                rest = rest.slice(Markers.delim.length);
-                _c = splitSpace(rest), tokens.postDelimiter = _c[0], rest = _c[1];
-            }
-            if (isClosed) {
-                var trimmed = rest.trimRight();
-                tokens.end = rest.slice(trimmed.length - Markers.end.length);
-                rest = trimmed.slice(0, -Markers.end.length);
-            }
-            tokens.description = rest;
-            block.push({ number: num, source: source, tokens: tokens });
-            num++;
-            if (isClosed) {
-                var result = block.slice();
-                block = null;
-                return result;
-            }
-            return null;
-        };
-    }
-
-    var reTag = /^@\S+/;
-    function getParser$1(_a) {
-        var _b = (_a === void 0 ? {} : _a).fence, fence = _b === void 0 ? '```' : _b;
-        var fencer = getFencer(fence);
-        var toggleFence = function (source, isFenced) {
-            return fencer(source) ? !isFenced : isFenced;
-        };
+    const reTag = /^@\S+/;
+    /**
+     * Creates configured `Parser`
+     * @param {Partial<Options>} options
+     */
+    function getParser({ fence = '```', } = {}) {
+        const fencer = getFencer(fence);
+        const toggleFence = (source, isFenced) => fencer(source) ? !isFenced : isFenced;
         return function parseBlock(source) {
             // start with description section
-            var sections = [[]];
-            var isFenced = false;
-            for (var _i = 0, source_1 = source; _i < source_1.length; _i++) {
-                var line = source_1[_i];
+            const sections = [[]];
+            let isFenced = false;
+            for (const line of source) {
                 if (reTag.test(line.tokens.description) && !isFenced) {
                     sections.push([line]);
                 }
@@ -121,17 +58,67 @@ var CommentParser = (function (exports) {
     }
     function getFencer(fence) {
         if (typeof fence === 'string')
-            return function (source) { return source.split(fence).length % 2 === 0; };
+            return (source) => source.split(fence).length % 2 === 0;
         return fence;
     }
 
-    function getParser$2(_a) {
-        var tokenizers = _a.tokenizers;
+    var Markers;
+    (function (Markers) {
+        Markers["start"] = "/**";
+        Markers["nostart"] = "/***";
+        Markers["delim"] = "*";
+        Markers["end"] = "*/";
+    })(Markers || (Markers = {}));
+
+    function getParser$1({ startLine = 0, } = {}) {
+        let block = null;
+        let num = startLine;
+        return function parseSource(source) {
+            let rest = source;
+            const tokens = seedTokens();
+            [tokens.start, rest] = splitSpace(rest);
+            if (block === null &&
+                rest.startsWith(Markers.start) &&
+                !rest.startsWith(Markers.nostart)) {
+                block = [];
+                tokens.delimiter = rest.slice(0, Markers.start.length);
+                rest = rest.slice(Markers.start.length);
+                [tokens.postDelimiter, rest] = splitSpace(rest);
+            }
+            if (block === null) {
+                num++;
+                return null;
+            }
+            const isClosed = rest.trimRight().endsWith(Markers.end);
+            if (tokens.delimiter === '' &&
+                rest.startsWith(Markers.delim) &&
+                !rest.startsWith(Markers.end)) {
+                tokens.delimiter = Markers.delim;
+                rest = rest.slice(Markers.delim.length);
+                [tokens.postDelimiter, rest] = splitSpace(rest);
+            }
+            if (isClosed) {
+                const trimmed = rest.trimRight();
+                tokens.end = rest.slice(trimmed.length - Markers.end.length);
+                rest = trimmed.slice(0, -Markers.end.length);
+            }
+            tokens.description = rest;
+            block.push({ number: num, source, tokens });
+            num++;
+            if (isClosed) {
+                const result = block.slice();
+                block = null;
+                return result;
+            }
+            return null;
+        };
+    }
+
+    function getParser$2({ tokenizers }) {
         return function parseSpec(source) {
             var _a;
-            var spec = seedSpec({ source: source });
-            for (var _i = 0, tokenizers_1 = tokenizers; _i < tokenizers_1.length; _i++) {
-                var tokenize = tokenizers_1[_i];
+            let spec = seedSpec({ source });
+            for (const tokenize of tokenizers) {
                 spec = tokenize(spec);
                 if ((_a = spec.problems[spec.problems.length - 1]) === null || _a === void 0 ? void 0 : _a.critical)
                     break;
@@ -139,10 +126,15 @@ var CommentParser = (function (exports) {
             return spec;
         };
     }
+
+    /**
+     * Splits the `@prefix` from remaining `Spec.lines[].token.descrioption` into the `tag` token,
+     * and populates `spec.tag`
+     */
     function tagTokenizer() {
-        return function (spec) {
-            var tokens = spec.source[0].tokens;
-            var match = tokens.description.match(/\s*(@(\S+))(\s*)/);
+        return (spec) => {
+            const { tokens } = spec.source[0];
+            const match = tokens.description.match(/\s*(@(\S+))(\s*)/);
             if (match === null) {
                 spec.problems.push({
                     code: 'spec:tag:prefix',
@@ -159,25 +151,35 @@ var CommentParser = (function (exports) {
             return spec;
         };
     }
-    function typeTokenizer() {
-        return function (spec) {
-            var _a;
-            var res = '';
-            var curlies = 0;
-            var tokens = spec.source[0].tokens;
-            var source = tokens.description.trimLeft();
-            if (source[0] !== '{')
-                return spec;
-            for (var _i = 0, source_1 = source; _i < source_1.length; _i++) {
-                var ch = source_1[_i];
-                if (ch === '{')
-                    curlies++;
-                if (ch === '}')
-                    curlies--;
-                res += ch;
-                if (curlies === 0) {
-                    break;
+
+    /**
+     * Sets splits remaining `Spec.lines[].tokes.description` into `type` and `description`
+     * tokens and populates Spec.type`
+     *
+     * @param {Spacing} spacing tells how to deal with a whitespace
+     * for type values going over multiple lines
+     */
+    function typeTokenizer(spacing = 'compact') {
+        const join = getJoiner(spacing);
+        return (spec) => {
+            let curlies = 0;
+            let lines = [];
+            for (const [i, { tokens }] of spec.source.entries()) {
+                let type = '';
+                if (i === 0 && tokens.description[0] !== '{')
+                    return spec;
+                for (const ch of tokens.description) {
+                    if (ch === '{')
+                        curlies++;
+                    if (ch === '}')
+                        curlies--;
+                    type += ch;
+                    if (curlies === 0)
+                        break;
                 }
+                lines.push([tokens, type]);
+                if (curlies === 0)
+                    break;
             }
             if (curlies !== 0) {
                 spec.problems.push({
@@ -188,35 +190,60 @@ var CommentParser = (function (exports) {
                 });
                 return spec;
             }
-            spec.type = res.slice(1, -1);
-            tokens.type = res;
-            _a = splitSpace(source.slice(tokens.type.length)), tokens.postType = _a[0], tokens.description = _a[1];
+            const parts = [];
+            const offset = lines[0][0].postDelimiter.length;
+            for (const [i, [tokens, type]] of lines.entries()) {
+                if (type === '')
+                    continue;
+                tokens.type = type;
+                if (i > 0) {
+                    tokens.type = tokens.postDelimiter.slice(offset) + type;
+                    tokens.postDelimiter = tokens.postDelimiter.slice(0, offset);
+                }
+                [tokens.postType, tokens.description] = splitSpace(tokens.description.slice(tokens.type.length));
+                parts.push(tokens.type);
+            }
+            parts[0] = parts[0].slice(1);
+            parts[parts.length - 1] = parts[parts.length - 1].slice(0, -1);
+            spec.type = join(parts);
             return spec;
         };
     }
+    const trim = (x) => x.trim();
+    function getJoiner(spacing) {
+        if (spacing === 'compact')
+            return (t) => t.map(trim).join('');
+        else if (spacing === 'preserve')
+            return (t) => t.join('\n');
+        else
+            return spacing;
+    }
+
+    const isQuoted = (s) => s && s.startsWith('"') && s.endsWith('"');
+    /**
+     * Splits remaining `spec.lines[].tokens.description` into `name` and `descriptions` tokens,
+     * and populates the `spec.name`
+     */
     function nameTokenizer() {
-        return function (spec) {
-            var _a, _b;
-            var _c;
-            var tokens = spec.source[0].tokens;
-            var source = tokens.description.trimLeft();
-            var quotedGroups = source.split('"');
+        return (spec) => {
+            const { tokens } = spec.source[0];
+            const source = tokens.description.trimLeft();
+            const quotedGroups = source.split('"');
             // if it starts with quoted group, assume it is a literal
             if (quotedGroups.length > 1 &&
                 quotedGroups[0] === '' &&
                 quotedGroups.length % 2 === 1) {
                 spec.name = quotedGroups[1];
-                tokens.name = "\"" + quotedGroups[1] + "\"";
-                _a = splitSpace(source.slice(tokens.name.length)), tokens.postName = _a[0], tokens.description = _a[1];
+                tokens.name = `"${quotedGroups[1]}"`;
+                [tokens.postName, tokens.description] = splitSpace(source.slice(tokens.name.length));
                 return spec;
             }
-            var brackets = 0;
-            var name = '';
-            var optional = false;
-            var defaultValue;
+            let brackets = 0;
+            let name = '';
+            let optional = false;
+            let defaultValue;
             // assume name is non-space string or anything wrapped into brackets
-            for (var _i = 0, source_2 = source; _i < source_2.length; _i++) {
-                var ch = source_2[_i];
+            for (const ch of source) {
                 if (brackets === 0 && isSpace(ch))
                     break;
                 if (ch === '[')
@@ -234,26 +261,18 @@ var CommentParser = (function (exports) {
                 });
                 return spec;
             }
-            var nameToken = name;
+            const nameToken = name;
             if (name[0] === '[' && name[name.length - 1] === ']') {
                 optional = true;
                 name = name.slice(1, -1);
-                var parts = name.split('=');
+                const parts = name.split('=');
                 name = parts[0].trim();
-                defaultValue = (_c = parts[1]) === null || _c === void 0 ? void 0 : _c.trim();
+                if (parts[1] !== undefined)
+                    defaultValue = parts.slice(1).join('=').trim();
                 if (name === '') {
                     spec.problems.push({
                         code: 'spec:name:empty-name',
                         message: 'empty name',
-                        line: spec.source[0].number,
-                        critical: true,
-                    });
-                    return spec;
-                }
-                if (parts.length > 2) {
-                    spec.problems.push({
-                        code: 'spec:name:invalid-default',
-                        message: 'invalid default value syntax',
                         line: spec.source[0].number,
                         critical: true,
                     });
@@ -268,92 +287,101 @@ var CommentParser = (function (exports) {
                     });
                     return spec;
                 }
+                // has "=" and is not a string, except for "=>"
+                if (!isQuoted(defaultValue) && /=(?!>)/.test(defaultValue)) {
+                    spec.problems.push({
+                        code: 'spec:name:invalid-default',
+                        message: 'invalid default value syntax',
+                        line: spec.source[0].number,
+                        critical: true,
+                    });
+                    return spec;
+                }
             }
             spec.optional = optional;
             spec.name = name;
             tokens.name = nameToken;
             if (defaultValue !== undefined)
                 spec.default = defaultValue;
-            _b = splitSpace(source.slice(tokens.name.length)), tokens.postName = _b[0], tokens.description = _b[1];
+            [tokens.postName, tokens.description] = splitSpace(source.slice(tokens.name.length));
             return spec;
         };
     }
-    function descriptionTokenizer(join) {
-        return function (spec) {
+
+    /**
+     * Makes no changes to `spec.lines[].tokens` but joins them into `spec.description`
+     * following given spacing srtategy
+     * @param {Spacing} spacing tells how to handle the whitespace
+     */
+    function descriptionTokenizer(spacing = 'compact') {
+        const join = getJoiner$1(spacing);
+        return (spec) => {
             spec.description = join(spec.source);
             return spec;
         };
     }
-
-    function getSpacer(spacing) {
+    function getJoiner$1(spacing) {
         if (spacing === 'compact')
-            return compactSpacer;
+            return compactJoiner;
         if (spacing === 'preserve')
-            return preserveSpacer;
+            return preserveJoiner;
         return spacing;
     }
-    function compactSpacer(lines) {
+    function compactJoiner(lines) {
         return lines
-            .map(function (_a) {
-            var description = _a.tokens.description;
-            return description.trim();
-        })
-            .filter(function (description) { return description !== ''; })
+            .map(({ tokens: { description } }) => description.trim())
+            .filter((description) => description !== '')
             .join(' ');
     }
-    function preserveSpacer(lines) {
+    const lineNo = (num, { tokens }, i) => tokens.type === '' ? num : i;
+    const getDescription = ({ tokens }) => (tokens.delimiter === '' ? tokens.start : tokens.postDelimiter.slice(1)) +
+        tokens.description;
+    function preserveJoiner(lines) {
         if (lines.length === 0)
             return '';
+        // skip the opening line with no description
         if (lines[0].tokens.description === '' &&
             lines[0].tokens.delimiter === Markers.start)
             lines = lines.slice(1);
-        var lastLine = lines[lines.length - 1];
+        // skip the closing line with no description
+        const lastLine = lines[lines.length - 1];
         if (lastLine !== undefined &&
             lastLine.tokens.description === '' &&
             lastLine.tokens.end.endsWith(Markers.end))
             lines = lines.slice(0, -1);
-        return lines
-            .map(function (_a) {
-            var tokens = _a.tokens;
-            return (tokens.delimiter === ''
-                ? tokens.start
-                : tokens.postDelimiter.slice(1)) + tokens.description;
-        })
-            .join('\n');
+        // description starts at the last line of type definition
+        lines = lines.slice(lines.reduce(lineNo, 0));
+        return lines.map(getDescription).join('\n');
     }
 
-    function getParser$3(_a) {
-        var _b = _a === void 0 ? {} : _a, _c = _b.startLine, startLine = _c === void 0 ? 0 : _c, _d = _b.fence, fence = _d === void 0 ? '```' : _d, _e = _b.spacing, spacing = _e === void 0 ? 'compact' : _e, _f = _b.tokenizers, tokenizers = _f === void 0 ? [
-            tagTokenizer(),
-            typeTokenizer(),
-            nameTokenizer(),
-            descriptionTokenizer(getSpacer(spacing)),
-        ] : _f;
+    function getParser$3({ startLine = 0, fence = '```', spacing = 'compact', tokenizers = [
+        tagTokenizer(),
+        typeTokenizer(spacing),
+        nameTokenizer(),
+        descriptionTokenizer(spacing),
+    ], } = {}) {
         if (startLine < 0 || startLine % 1 > 0)
             throw new Error('Invalid startLine');
-        var parseSource = getParser({ startLine: startLine });
-        var parseBlock = getParser$1({ fence: fence });
-        var parseSpec = getParser$2({ tokenizers: tokenizers });
-        var join = getSpacer(spacing);
-        var notEmpty = function (line) {
-            return line.tokens.description.trim() != '';
-        };
+        const parseSource = getParser$1({ startLine });
+        const parseBlock = getParser({ fence });
+        const parseSpec = getParser$2({ tokenizers });
+        const joinDescription = getJoiner$1(spacing);
+        const notEmpty = (line) => line.tokens.description.trim() != '';
         return function (source) {
-            var blocks = [];
-            for (var _i = 0, _a = splitLines(source); _i < _a.length; _i++) {
-                var line = _a[_i];
-                var lines = parseSource(line);
+            const blocks = [];
+            for (const line of splitLines(source)) {
+                const lines = parseSource(line);
                 if (lines === null)
                     continue;
                 if (lines.find(notEmpty) === undefined)
                     continue;
-                var sections = parseBlock(lines);
-                var specs = sections.slice(1).map(parseSpec);
+                const sections = parseBlock(lines);
+                const specs = sections.slice(1).map(parseSpec);
                 blocks.push({
-                    description: join(sections[0]),
+                    description: joinDescription(sections[0]),
                     tags: specs,
                     source: lines,
-                    problems: specs.reduce(function (acc, spec) { return acc.concat(spec.problems); }, []),
+                    problems: specs.reduce((acc, spec) => acc.concat(spec.problems), []),
                 });
             }
             return blocks;
@@ -374,25 +402,9 @@ var CommentParser = (function (exports) {
             tokens.end);
     }
     function getStringifier() {
-        return function (block) {
-            return block.source.map(function (_a) {
-                var tokens = _a.tokens;
-                return join(tokens);
-            }).join('\n');
-        };
+        return (block) => block.source.map(({ tokens }) => join(tokens)).join('\n');
     }
 
-    var __assign$1 = (window && window.__assign) || function () {
-        __assign$1 = Object.assign || function(t) {
-            for (var s, i = 1, n = arguments.length; i < n; i++) {
-                s = arguments[i];
-                for (var p in s) if (Object.prototype.hasOwnProperty.call(s, p))
-                    t[p] = s[p];
-            }
-            return t;
-        };
-        return __assign$1.apply(this, arguments);
-    };
     var __rest = (window && window.__rest) || function (s, e) {
         var t = {};
         for (var p in s) if (Object.prototype.hasOwnProperty.call(s, p) && e.indexOf(p) < 0)
@@ -404,64 +416,18 @@ var CommentParser = (function (exports) {
             }
         return t;
     };
-    var pull = function (offset) { return function (str) { return str.slice(offset); }; };
-    var push = function (offset) {
-        var space = ''.padStart(offset, ' ');
-        return function (str) { return str + space; };
-    };
-    function indent(pos) {
-        var shift;
-        var pad = function (start) {
-            if (shift === undefined) {
-                var offset = pos - start.length;
-                shift = offset > 0 ? push(offset) : pull(-offset);
-            }
-            return shift(start);
-        };
-        var update = function (line) { return (__assign$1(__assign$1({}, line), { tokens: __assign$1(__assign$1({}, line.tokens), { start: pad(line.tokens.start) }) })); };
-        return function (_a) {
-            var source = _a.source, fields = __rest(_a, ["source"]);
-            return rewireSource(__assign$1(__assign$1({}, fields), { source: source.map(update) }));
-        };
-    }
-
-    var __assign$2 = (window && window.__assign) || function () {
-        __assign$2 = Object.assign || function(t) {
-            for (var s, i = 1, n = arguments.length; i < n; i++) {
-                s = arguments[i];
-                for (var p in s) if (Object.prototype.hasOwnProperty.call(s, p))
-                    t[p] = s[p];
-            }
-            return t;
-        };
-        return __assign$2.apply(this, arguments);
-    };
-    var __rest$1 = (window && window.__rest) || function (s, e) {
-        var t = {};
-        for (var p in s) if (Object.prototype.hasOwnProperty.call(s, p) && e.indexOf(p) < 0)
-            t[p] = s[p];
-        if (s != null && typeof Object.getOwnPropertySymbols === "function")
-            for (var i = 0, p = Object.getOwnPropertySymbols(s); i < p.length; i++) {
-                if (e.indexOf(p[i]) < 0 && Object.prototype.propertyIsEnumerable.call(s, p[i]))
-                    t[p[i]] = s[p[i]];
-            }
-        return t;
-    };
-    var zeroWidth = {
+    const zeroWidth = {
         start: 0,
         tag: 0,
         type: 0,
         name: 0,
     };
-    var getWidth = function (w, _a) {
-        var t = _a.tokens;
-        return ({
-            start: t.delimiter === Markers.start ? t.start.length : w.start,
-            tag: Math.max(w.tag, t.tag.length),
-            type: Math.max(w.type, t.type.length),
-            name: Math.max(w.name, t.name.length),
-        });
-    };
+    const getWidth = (w, { tokens: t }) => ({
+        start: t.delimiter === Markers.start ? t.start.length : w.start,
+        tag: Math.max(w.tag, t.tag.length),
+        type: Math.max(w.type, t.type.length),
+        name: Math.max(w.name, t.name.length),
+    });
     //  /**
     //   * Description may go
     //   * over multiple lines followed by @tags
@@ -470,22 +436,22 @@ var CommentParser = (function (exports) {
     //      description line 2
     //      * description line 3
     //   */
-    var space = function (len) { return ''.padStart(len, ' '); };
+    const space = (len) => ''.padStart(len, ' ');
     function align() {
-        var intoTags = false;
-        var w;
+        let intoTags = false;
+        let w;
         function update(line) {
-            var tokens = __assign$2({}, line.tokens);
+            const tokens = Object.assign({}, line.tokens);
             if (tokens.tag !== '')
                 intoTags = true;
-            var isEmpty = tokens.tag === '' &&
+            const isEmpty = tokens.tag === '' &&
                 tokens.name === '' &&
                 tokens.type === '' &&
                 tokens.description === '';
             // dangling '*/'
             if (tokens.end === Markers.end && isEmpty) {
                 tokens.start = space(w.start + 1);
-                return __assign$2(__assign$2({}, line), { tokens: tokens });
+                return Object.assign(Object.assign({}, line), { tokens });
             }
             switch (tokens.delimiter) {
                 case Markers.start:
@@ -503,41 +469,113 @@ var CommentParser = (function (exports) {
                 tokens.postType = space(w.type - tokens.type.length + 1);
                 tokens.postName = space(w.name - tokens.name.length + 1);
             }
-            return __assign$2(__assign$2({}, line), { tokens: tokens });
+            return Object.assign(Object.assign({}, line), { tokens });
         }
-        return function (_a) {
-            var source = _a.source, fields = __rest$1(_a, ["source"]);
-            w = source.reduce(getWidth, __assign$2({}, zeroWidth));
-            return rewireSource(__assign$2(__assign$2({}, fields), { source: source.map(update) }));
+        return (_a) => {
+            var { source } = _a, fields = __rest(_a, ["source"]);
+            w = source.reduce(getWidth, Object.assign({}, zeroWidth));
+            return rewireSource(Object.assign(Object.assign({}, fields), { source: source.map(update) }));
         };
     }
 
-    function flow() {
-        var transforms = [];
-        for (var _i = 0; _i < arguments.length; _i++) {
-            transforms[_i] = arguments[_i];
-        }
-        return function (block) {
-            return transforms.reduce(function (block, t) { return t(block); }, block);
+    var __rest$1 = (window && window.__rest) || function (s, e) {
+        var t = {};
+        for (var p in s) if (Object.prototype.hasOwnProperty.call(s, p) && e.indexOf(p) < 0)
+            t[p] = s[p];
+        if (s != null && typeof Object.getOwnPropertySymbols === "function")
+            for (var i = 0, p = Object.getOwnPropertySymbols(s); i < p.length; i++) {
+                if (e.indexOf(p[i]) < 0 && Object.prototype.propertyIsEnumerable.call(s, p[i]))
+                    t[p[i]] = s[p[i]];
+            }
+        return t;
+    };
+    const pull = (offset) => (str) => str.slice(offset);
+    const push = (offset) => {
+        const space = ''.padStart(offset, ' ');
+        return (str) => str + space;
+    };
+    function indent(pos) {
+        let shift;
+        const pad = (start) => {
+            if (shift === undefined) {
+                const offset = pos - start.length;
+                shift = offset > 0 ? push(offset) : pull(-offset);
+            }
+            return shift(start);
+        };
+        const update = (line) => (Object.assign(Object.assign({}, line), { tokens: Object.assign(Object.assign({}, line.tokens), { start: pad(line.tokens.start) }) }));
+        return (_a) => {
+            var { source } = _a, fields = __rest$1(_a, ["source"]);
+            return rewireSource(Object.assign(Object.assign({}, fields), { source: source.map(update) }));
         };
     }
 
-    var index = /*#__PURE__*/Object.freeze({
-        __proto__: null,
-        flow: flow,
-        indent: indent,
-        align: align
-    });
+    function flow(...transforms) {
+        return (block) => transforms.reduce((block, t) => t(block), block);
+    }
 
-    function parse(source, options) {
-        if (options === void 0) { options = {}; }
+    const zeroWidth$1 = {
+        line: 0,
+        start: 0,
+        delimiter: 0,
+        postDelimiter: 0,
+        tag: 0,
+        postTag: 0,
+        name: 0,
+        postName: 0,
+        type: 0,
+        postType: 0,
+        description: 0,
+        end: 0,
+    };
+    const fields = Object.keys(zeroWidth$1);
+    const repr = (x) => (isSpace(x) ? `{${x.length}}` : x);
+    const frame = (line) => '|' + line.join('|') + '|';
+    const align$1 = (width, tokens) => Object.keys(tokens).map((k) => repr(tokens[k]).padEnd(width[k]));
+    function inspect({ source }) {
+        if (source.length === 0)
+            return '';
+        const width = Object.assign({}, zeroWidth$1);
+        for (const f of fields)
+            width[f] = f.length;
+        for (const { number, tokens } of source) {
+            width.line = Math.max(width.line, number.toString().length);
+            for (const k in tokens)
+                width[k] = Math.max(width[k], repr(tokens[k]).length);
+        }
+        const lines = [[], []];
+        for (const f of fields)
+            lines[0].push(f.padEnd(width[f]));
+        for (const f of fields)
+            lines[1].push('-'.padEnd(width[f], '-'));
+        for (const { number, tokens } of source) {
+            const line = number.toString().padStart(width.line);
+            lines.push([line, ...align$1(width, tokens)]);
+        }
+        return lines.map(frame).join('\n');
+    }
+
+    function parse(source, options = {}) {
         return getParser$3(options)(source);
     }
-    var stringify = getStringifier();
+    const stringify = getStringifier();
+    const transforms = {
+        flow: flow,
+        align: align,
+        indent: indent,
+    };
+    const tokenizers = {
+        tag: tagTokenizer,
+        type: typeTokenizer,
+        name: nameTokenizer,
+        description: descriptionTokenizer,
+    };
 
+    exports.inspect = inspect;
     exports.parse = parse;
     exports.stringify = stringify;
-    exports.transforms = index;
+    exports.tokenizers = tokenizers;
+    exports.transforms = transforms;
 
     Object.defineProperty(exports, '__esModule', { value: true });
 
