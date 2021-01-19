@@ -225,8 +225,10 @@ var CommentParser = (function (exports) {
      * and populates the `spec.name`
      */
     function nameTokenizer() {
+        const typeEnd = (num, { tokens }, i) => tokens.type === '' ? num : i;
         return (spec) => {
-            const { tokens } = spec.source[0];
+            // look for the name in the line where {type} ends
+            const { tokens } = spec.source[spec.source.reduce(typeEnd, 0)];
             const source = tokens.description.trimLeft();
             const quotedGroups = source.split('"');
             // if it starts with quoted group, assume it is a literal

@@ -17,6 +17,6 @@
   },
   "homepage": "https://github.com/syavorsky/syavorsky.github.io#readme",
   "dependencies": {
-    "comment-parser": "^1.1.0"
+    "comment-parser": "^1.1.1"
   }
 }
