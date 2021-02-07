@@ -200,7 +200,7 @@ var CommentParser = (function (exports) {
                     tokens.type = tokens.postDelimiter.slice(offset) + type;
                     tokens.postDelimiter = tokens.postDelimiter.slice(0, offset);
                 }
-                [tokens.postType, tokens.description] = splitSpace(tokens.description.slice(tokens.type.length));
+                [tokens.postType, tokens.description] = splitSpace(tokens.description.slice(type.length));
                 parts.push(tokens.type);
             }
             parts[0] = parts[0].slice(1);
@@ -430,14 +430,6 @@ var CommentParser = (function (exports) {
         type: Math.max(w.type, t.type.length),
         name: Math.max(w.name, t.name.length),
     });
-    //  /**
-    //   * Description may go
-    //   * over multiple lines followed by @tags
-    //   *
-    //* @my-tag {my.type} my-name description line 1
-    //      description line 2
-    //      * description line 3
-    //   */
     const space = (len) => ''.padStart(len, ' ');
     function align() {
         let intoTags = false;
@@ -463,14 +455,41 @@ var CommentParser = (function (exports) {
                     tokens.start = space(w.start + 1);
                     break;
                 default:
-                    tokens.start = space(w.start + 3);
                     tokens.delimiter = '';
+                    tokens.start = space(w.start + 2); // compensate delimiter
             }
-            if (intoTags) {
+            if (!intoTags) {
+                tokens.postDelimiter = tokens.description === '' ? '' : ' ';
+                return Object.assign(Object.assign({}, line), { tokens });
+            }
+            const nothingAfter = {
+                delim: false,
+                tag: false,
+                type: false,
+                name: false,
+            };
+            if (tokens.description === '') {
+                nothingAfter.name = true;
+                tokens.postName = '';
+                if (tokens.name === '') {
+                    nothingAfter.type = true;
+                    tokens.postType = '';
+                    if (tokens.type === '') {
+                        nothingAfter.tag = true;
+                        tokens.postTag = '';
+                        if (tokens.tag === '') {
+                            nothingAfter.delim = true;
+                        }
+                    }
+                }
+            }
+            tokens.postDelimiter = nothingAfter.delim ? '' : ' ';
+            if (!nothingAfter.tag)
                 tokens.postTag = space(w.tag - tokens.tag.length + 1);
+            if (!nothingAfter.type)
                 tokens.postType = space(w.type - tokens.type.length + 1);
+            if (!nothingAfter.name)
                 tokens.postName = space(w.name - tokens.name.length + 1);
-            }
             return Object.assign(Object.assign({}, line), { tokens });
         }
         return (_a) => {
