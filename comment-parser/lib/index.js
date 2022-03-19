@@ -1,8 +1,23 @@
 var CommentParser = (function (exports) {
     'use strict';
 
+    /** @deprecated */
+    exports.Markers = void 0;
+    (function (Markers) {
+        Markers["start"] = "/**";
+        Markers["nostart"] = "/***";
+        Markers["delim"] = "*";
+        Markers["end"] = "*/";
+    })(exports.Markers || (exports.Markers = {}));
+
     function isSpace(source) {
         return /^\s+$/.test(source);
+    }
+    function splitCR(source) {
+        const matches = source.match(/\r+$/);
+        return matches == null
+            ? ['', source]
+            : [source.slice(-matches[0].length), source.slice(0, -matches[0].length)];
     }
     function splitSpace(source) {
         const matches = source.match(/^\s+/);
@@ -11,13 +26,16 @@ var CommentParser = (function (exports) {
             : [source.slice(0, matches[0].length), source.slice(matches[0].length)];
     }
     function splitLines(source) {
-        return source.split(/\r?\n/);
+        return source.split(/\n/);
+    }
+    function seedBlock(block = {}) {
+        return Object.assign({ description: '', tags: [], source: [], problems: [] }, block);
     }
     function seedSpec(spec = {}) {
         return Object.assign({ tag: '', name: '', type: '', optional: false, description: '', problems: [], source: [] }, spec);
     }
     function seedTokens(tokens = {}) {
-        return Object.assign({ start: '', delimiter: '', postDelimiter: '', tag: '', postTag: '', name: '', postName: '', type: '', postType: '', description: '', end: '' }, tokens);
+        return Object.assign({ start: '', delimiter: '', postDelimiter: '', tag: '', postTag: '', name: '', postName: '', type: '', postType: '', description: '', end: '', lineEnd: '' }, tokens);
     }
     /**
      * Assures Block.tags[].source contains references to the Block.source items,
@@ -31,13 +49,23 @@ var CommentParser = (function (exports) {
         }
         return block;
     }
+    /**
+     * Assures Block.source contains references to the Block.tags[].source items,
+     * using Block.tags[].source as a source of truth. This is a counterpart of rewireSource
+     * @param block parsed coments block
+     */
+    function rewireSpecs(block) {
+        const source = block.tags.reduce((acc, spec) => spec.source.reduce((acc, line) => acc.set(line.number, line), acc), new Map());
+        block.source = block.source.map((line) => source.get(line.number) || line);
+        return block;
+    }
 
     const reTag = /^@\S+/;
     /**
      * Creates configured `Parser`
      * @param {Partial<Options>} options
      */
-    function getParser({ fence = '```', } = {}) {
+    function getParser$3({ fence = '```', } = {}) {
         const fencer = getFencer(fence);
         const toggleFence = (source, isFenced) => fencer(source) ? !isFenced : isFenced;
         return function parseBlock(source) {
@@ -62,45 +90,38 @@ var CommentParser = (function (exports) {
         return fence;
     }
 
-    var Markers;
-    (function (Markers) {
-        Markers["start"] = "/**";
-        Markers["nostart"] = "/***";
-        Markers["delim"] = "*";
-        Markers["end"] = "*/";
-    })(Markers || (Markers = {}));
-
-    function getParser$1({ startLine = 0, } = {}) {
+    function getParser$2({ startLine = 0, markers = exports.Markers, } = {}) {
         let block = null;
         let num = startLine;
         return function parseSource(source) {
             let rest = source;
             const tokens = seedTokens();
+            [tokens.lineEnd, rest] = splitCR(rest);
             [tokens.start, rest] = splitSpace(rest);
             if (block === null &&
-                rest.startsWith(Markers.start) &&
-                !rest.startsWith(Markers.nostart)) {
+                rest.startsWith(markers.start) &&
+                !rest.startsWith(markers.nostart)) {
                 block = [];
-                tokens.delimiter = rest.slice(0, Markers.start.length);
-                rest = rest.slice(Markers.start.length);
+                tokens.delimiter = rest.slice(0, markers.start.length);
+                rest = rest.slice(markers.start.length);
                 [tokens.postDelimiter, rest] = splitSpace(rest);
             }
             if (block === null) {
                 num++;
                 return null;
             }
-            const isClosed = rest.trimRight().endsWith(Markers.end);
+            const isClosed = rest.trimRight().endsWith(markers.end);
             if (tokens.delimiter === '' &&
-                rest.startsWith(Markers.delim) &&
-                !rest.startsWith(Markers.end)) {
-                tokens.delimiter = Markers.delim;
-                rest = rest.slice(Markers.delim.length);
+                rest.startsWith(markers.delim) &&
+                !rest.startsWith(markers.end)) {
+                tokens.delimiter = markers.delim;
+                rest = rest.slice(markers.delim.length);
                 [tokens.postDelimiter, rest] = splitSpace(rest);
             }
             if (isClosed) {
                 const trimmed = rest.trimRight();
-                tokens.end = rest.slice(trimmed.length - Markers.end.length);
-                rest = trimmed.slice(0, -Markers.end.length);
+                tokens.end = rest.slice(trimmed.length - markers.end.length);
+                rest = trimmed.slice(0, -markers.end.length);
             }
             tokens.description = rest;
             block.push({ number: num, source, tokens });
@@ -114,7 +135,7 @@ var CommentParser = (function (exports) {
         };
     }
 
-    function getParser$2({ tokenizers }) {
+    function getParser$1({ tokenizers }) {
         return function parseSpec(source) {
             var _a;
             let spec = seedSpec({ source });
@@ -128,7 +149,7 @@ var CommentParser = (function (exports) {
     }
 
     /**
-     * Splits the `@prefix` from remaining `Spec.lines[].token.descrioption` into the `tag` token,
+     * Splits the `@prefix` from remaining `Spec.lines[].token.description` into the `tag` token,
      * and populates `spec.tag`
      */
     function tagTokenizer() {
@@ -160,7 +181,7 @@ var CommentParser = (function (exports) {
      * for type values going over multiple lines
      */
     function typeTokenizer(spacing = 'compact') {
-        const join = getJoiner(spacing);
+        const join = getJoiner$1(spacing);
         return (spec) => {
             let curlies = 0;
             let lines = [];
@@ -193,8 +214,6 @@ var CommentParser = (function (exports) {
             const parts = [];
             const offset = lines[0][0].postDelimiter.length;
             for (const [i, [tokens, type]] of lines.entries()) {
-                if (type === '')
-                    continue;
                 tokens.type = type;
                 if (i > 0) {
                     tokens.type = tokens.postDelimiter.slice(offset) + type;
@@ -210,7 +229,7 @@ var CommentParser = (function (exports) {
         };
     }
     const trim = (x) => x.trim();
-    function getJoiner(spacing) {
+    function getJoiner$1(spacing) {
         if (spacing === 'compact')
             return (t) => t.map(trim).join('');
         else if (spacing === 'preserve')
@@ -314,22 +333,23 @@ var CommentParser = (function (exports) {
      * Makes no changes to `spec.lines[].tokens` but joins them into `spec.description`
      * following given spacing srtategy
      * @param {Spacing} spacing tells how to handle the whitespace
+     * @param {BlockMarkers} markers tells how to handle comment block delimitation
      */
-    function descriptionTokenizer(spacing = 'compact') {
-        const join = getJoiner$1(spacing);
+    function descriptionTokenizer(spacing = 'compact', markers = exports.Markers) {
+        const join = getJoiner(spacing);
         return (spec) => {
-            spec.description = join(spec.source);
+            spec.description = join(spec.source, markers);
             return spec;
         };
     }
-    function getJoiner$1(spacing) {
+    function getJoiner(spacing) {
         if (spacing === 'compact')
             return compactJoiner;
         if (spacing === 'preserve')
             return preserveJoiner;
         return spacing;
     }
-    function compactJoiner(lines) {
+    function compactJoiner(lines, markers = exports.Markers) {
         return lines
             .map(({ tokens: { description } }) => description.trim())
             .filter((description) => description !== '')
@@ -338,25 +358,25 @@ var CommentParser = (function (exports) {
     const lineNo = (num, { tokens }, i) => tokens.type === '' ? num : i;
     const getDescription = ({ tokens }) => (tokens.delimiter === '' ? tokens.start : tokens.postDelimiter.slice(1)) +
         tokens.description;
-    function preserveJoiner(lines) {
+    function preserveJoiner(lines, markers = exports.Markers) {
         if (lines.length === 0)
             return '';
         // skip the opening line with no description
         if (lines[0].tokens.description === '' &&
-            lines[0].tokens.delimiter === Markers.start)
+            lines[0].tokens.delimiter === markers.start)
             lines = lines.slice(1);
         // skip the closing line with no description
         const lastLine = lines[lines.length - 1];
         if (lastLine !== undefined &&
             lastLine.tokens.description === '' &&
-            lastLine.tokens.end.endsWith(Markers.end))
+            lastLine.tokens.end.endsWith(markers.end))
             lines = lines.slice(0, -1);
         // description starts at the last line of type definition
         lines = lines.slice(lines.reduce(lineNo, 0));
         return lines.map(getDescription).join('\n');
     }
 
-    function getParser$3({ startLine = 0, fence = '```', spacing = 'compact', tokenizers = [
+    function getParser({ startLine = 0, fence = '```', spacing = 'compact', markers = exports.Markers, tokenizers = [
         tagTokenizer(),
         typeTokenizer(spacing),
         nameTokenizer(),
@@ -364,23 +384,20 @@ var CommentParser = (function (exports) {
     ], } = {}) {
         if (startLine < 0 || startLine % 1 > 0)
             throw new Error('Invalid startLine');
-        const parseSource = getParser$1({ startLine });
-        const parseBlock = getParser({ fence });
-        const parseSpec = getParser$2({ tokenizers });
-        const joinDescription = getJoiner$1(spacing);
-        const notEmpty = (line) => line.tokens.description.trim() != '';
+        const parseSource = getParser$2({ startLine, markers });
+        const parseBlock = getParser$3({ fence });
+        const parseSpec = getParser$1({ tokenizers });
+        const joinDescription = getJoiner(spacing);
         return function (source) {
             const blocks = [];
             for (const line of splitLines(source)) {
                 const lines = parseSource(line);
                 if (lines === null)
                     continue;
-                if (lines.find(notEmpty) === undefined)
-                    continue;
                 const sections = parseBlock(lines);
                 const specs = sections.slice(1).map(parseSpec);
                 blocks.push({
-                    description: joinDescription(sections[0]),
+                    description: joinDescription(sections[0], markers),
                     tags: specs,
                     source: lines,
                     problems: specs.reduce((acc, spec) => acc.concat(spec.problems), []),
@@ -401,13 +418,14 @@ var CommentParser = (function (exports) {
             tokens.name +
             tokens.postName +
             tokens.description +
-            tokens.end);
+            tokens.end +
+            tokens.lineEnd);
     }
     function getStringifier() {
         return (block) => block.source.map(({ tokens }) => join(tokens)).join('\n');
     }
 
-    var __rest = (window && window.__rest) || function (s, e) {
+    var __rest$2 = (window && window.__rest) || function (s, e) {
         var t = {};
         for (var p in s) if (Object.prototype.hasOwnProperty.call(s, p) && e.indexOf(p) < 0)
             t[p] = s[p];
@@ -418,20 +436,20 @@ var CommentParser = (function (exports) {
             }
         return t;
     };
-    const zeroWidth = {
+    const zeroWidth$1 = {
         start: 0,
         tag: 0,
         type: 0,
         name: 0,
     };
-    const getWidth = (w, { tokens: t }) => ({
-        start: t.delimiter === Markers.start ? t.start.length : w.start,
+    const getWidth = (markers = exports.Markers) => (w, { tokens: t }) => ({
+        start: t.delimiter === markers.start ? t.start.length : w.start,
         tag: Math.max(w.tag, t.tag.length),
         type: Math.max(w.type, t.type.length),
         name: Math.max(w.name, t.name.length),
     });
     const space = (len) => ''.padStart(len, ' ');
-    function align() {
+    function align$1(markers = exports.Markers) {
         let intoTags = false;
         let w;
         function update(line) {
@@ -443,15 +461,15 @@ var CommentParser = (function (exports) {
                 tokens.type === '' &&
                 tokens.description === '';
             // dangling '*/'
-            if (tokens.end === Markers.end && isEmpty) {
+            if (tokens.end === markers.end && isEmpty) {
                 tokens.start = space(w.start + 1);
                 return Object.assign(Object.assign({}, line), { tokens });
             }
             switch (tokens.delimiter) {
-                case Markers.start:
+                case markers.start:
                     tokens.start = space(w.start);
                     break;
-                case Markers.delim:
+                case markers.delim:
                     tokens.start = space(w.start + 1);
                     break;
                 default:
@@ -493,8 +511,8 @@ var CommentParser = (function (exports) {
             return Object.assign(Object.assign({}, line), { tokens });
         }
         return (_a) => {
-            var { source } = _a, fields = __rest(_a, ["source"]);
-            w = source.reduce(getWidth, Object.assign({}, zeroWidth));
+            var { source } = _a, fields = __rest$2(_a, ["source"]);
+            w = source.reduce(getWidth(markers), Object.assign({}, zeroWidth$1));
             return rewireSource(Object.assign(Object.assign({}, fields), { source: source.map(update) }));
         };
     }
@@ -531,11 +549,32 @@ var CommentParser = (function (exports) {
         };
     }
 
+    var __rest = (window && window.__rest) || function (s, e) {
+        var t = {};
+        for (var p in s) if (Object.prototype.hasOwnProperty.call(s, p) && e.indexOf(p) < 0)
+            t[p] = s[p];
+        if (s != null && typeof Object.getOwnPropertySymbols === "function")
+            for (var i = 0, p = Object.getOwnPropertySymbols(s); i < p.length; i++) {
+                if (e.indexOf(p[i]) < 0 && Object.prototype.propertyIsEnumerable.call(s, p[i]))
+                    t[p[i]] = s[p[i]];
+            }
+        return t;
+    };
+    function crlf(ending) {
+        function update(line) {
+            return Object.assign(Object.assign({}, line), { tokens: Object.assign(Object.assign({}, line.tokens), { lineEnd: ending === 'LF' ? '' : '\r' }) });
+        }
+        return (_a) => {
+            var { source } = _a, fields = __rest(_a, ["source"]);
+            return rewireSource(Object.assign(Object.assign({}, fields), { source: source.map(update) }));
+        };
+    }
+
     function flow(...transforms) {
         return (block) => transforms.reduce((block, t) => t(block), block);
     }
 
-    const zeroWidth$1 = {
+    const zeroWidth = {
         line: 0,
         start: 0,
         delimiter: 0,
@@ -548,17 +587,20 @@ var CommentParser = (function (exports) {
         postType: 0,
         description: 0,
         end: 0,
+        lineEnd: 0,
     };
-    const fields = Object.keys(zeroWidth$1);
+    const headers = { lineEnd: 'CR' };
+    const fields = Object.keys(zeroWidth);
     const repr = (x) => (isSpace(x) ? `{${x.length}}` : x);
     const frame = (line) => '|' + line.join('|') + '|';
-    const align$1 = (width, tokens) => Object.keys(tokens).map((k) => repr(tokens[k]).padEnd(width[k]));
+    const align = (width, tokens) => Object.keys(tokens).map((k) => repr(tokens[k]).padEnd(width[k]));
     function inspect({ source }) {
+        var _a, _b;
         if (source.length === 0)
             return '';
-        const width = Object.assign({}, zeroWidth$1);
+        const width = Object.assign({}, zeroWidth);
         for (const f of fields)
-            width[f] = f.length;
+            width[f] = ((_a = headers[f]) !== null && _a !== void 0 ? _a : f).length;
         for (const { number, tokens } of source) {
             width.line = Math.max(width.line, number.toString().length);
             for (const k in tokens)
@@ -566,24 +608,25 @@ var CommentParser = (function (exports) {
         }
         const lines = [[], []];
         for (const f of fields)
-            lines[0].push(f.padEnd(width[f]));
+            lines[0].push(((_b = headers[f]) !== null && _b !== void 0 ? _b : f).padEnd(width[f]));
         for (const f of fields)
             lines[1].push('-'.padEnd(width[f], '-'));
         for (const { number, tokens } of source) {
             const line = number.toString().padStart(width.line);
-            lines.push([line, ...align$1(width, tokens)]);
+            lines.push([line, ...align(width, tokens)]);
         }
         return lines.map(frame).join('\n');
     }
 
     function parse(source, options = {}) {
-        return getParser$3(options)(source);
+        return getParser(options)(source);
     }
     const stringify = getStringifier();
     const transforms = {
         flow: flow,
-        align: align,
+        align: align$1,
         indent: indent,
+        crlf: crlf,
     };
     const tokenizers = {
         tag: tagTokenizer,
@@ -591,12 +634,14 @@ var CommentParser = (function (exports) {
         name: nameTokenizer,
         description: descriptionTokenizer,
     };
+    const util = { rewireSpecs, rewireSource, seedBlock, seedTokens };
 
     exports.inspect = inspect;
     exports.parse = parse;
     exports.stringify = stringify;
     exports.tokenizers = tokenizers;
     exports.transforms = transforms;
+    exports.util = util;
 
     Object.defineProperty(exports, '__esModule', { value: true });
 
