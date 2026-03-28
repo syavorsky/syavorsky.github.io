@@ -16,6 +16,12 @@ function parse_defaults(source, parse, stringify, transforms) {
    * @param {any} value the value parameter
    */
 
+  /**
+   * Non-optional names can also carry default values
+   * @property {number} param1=1 first property
+   * @property {number} param2=2 second property
+   */
+
   /*** ignored */
   /* ignored */
 
