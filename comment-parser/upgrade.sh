@@ -5,7 +5,7 @@ set -e
 VER="$1"
 [[ -z "$VER" ]] && echo "Usage: $0 1.0.0" && exit 2
 
-cd $(cd $(dirname $0/..); pwd)
+cd "$(cd "$(dirname "$0")/.." && pwd)"
 
 npm install "comment-parser@$VER"
 
