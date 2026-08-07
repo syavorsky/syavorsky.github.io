@@ -110,7 +110,7 @@ var CommentParser = (function (exports) {
                 num++;
                 return null;
             }
-            const isClosed = rest.trimRight().endsWith(markers.end);
+            const isClosed = rest.trimEnd().endsWith(markers.end);
             if (tokens.delimiter === '' &&
                 rest.startsWith(markers.delim) &&
                 !rest.startsWith(markers.end)) {
@@ -119,7 +119,7 @@ var CommentParser = (function (exports) {
                 [tokens.postDelimiter, rest] = splitSpace(rest);
             }
             if (isClosed) {
-                const trimmed = rest.trimRight();
+                const trimmed = rest.trimEnd();
                 tokens.end = rest.slice(trimmed.length - markers.end.length);
                 rest = trimmed.slice(0, -markers.end.length);
             }
@@ -337,7 +337,7 @@ var CommentParser = (function (exports) {
                     return spec;
                 }
                 // has "=" and is not a string, except for "=>"
-                if (!isQuoted(defaultValue) && /=(?!>)/.test(defaultValue)) {
+                if (!isQuoted(defaultValue) && /=(?!>)/.test(defaultValue || '')) {
                     spec.problems.push({
                         code: 'spec:name:invalid-default',
                         message: 'invalid default value syntax',
@@ -350,9 +350,9 @@ var CommentParser = (function (exports) {
             if (!optional) {
                 const eqIndex = name.search(/=(?!>)/);
                 if (eqIndex !== -1) {
-                    defaultValue = name.slice(eqIndex + 1).trim();
-                    name = name.slice(0, eqIndex).trim();
-                    if (name === '') {
+                    const preEqual = name.slice(0, eqIndex).trim();
+                    const postEqual = name.slice(eqIndex + 1).trim();
+                    if (preEqual === '') {
                         spec.problems.push({
                             code: 'spec:name:empty-name',
                             message: 'empty name',
@@ -361,7 +361,7 @@ var CommentParser = (function (exports) {
                         });
                         return spec;
                     }
-                    if (defaultValue === '') {
+                    if (postEqual === '') {
                         spec.problems.push({
                             code: 'spec:name:empty-default',
                             message: 'empty default value',
@@ -370,14 +370,19 @@ var CommentParser = (function (exports) {
                         });
                         return spec;
                     }
-                    if (!isQuoted(defaultValue) && /=(?!>)/.test(defaultValue)) {
-                        spec.problems.push({
-                            code: 'spec:name:invalid-default',
-                            message: 'invalid default value syntax',
-                            line: spec.source[0].number,
-                            critical: true,
-                        });
-                        return spec;
+                    // Only match with JS identifier (or dots) before "="
+                    if (/^[\p{ID_Start}$_\.][\p{ID_Continue}$_\u200c\u200d\.]*=/u.test(name)) {
+                        if (!isQuoted(postEqual) && /=(?!>)/.test(postEqual)) {
+                            spec.problems.push({
+                                code: 'spec:name:invalid-default',
+                                message: 'invalid default value syntax',
+                                line: spec.source[0].number,
+                                critical: true,
+                            });
+                            return spec;
+                        }
+                        name = preEqual;
+                        defaultValue = postEqual;
                     }
                 }
             }
@@ -665,8 +670,9 @@ var CommentParser = (function (exports) {
             width[f] = ((_a = headers[f]) !== null && _a !== void 0 ? _a : f).length;
         for (const { number, tokens } of source) {
             width.line = Math.max(width.line, number.toString().length);
-            for (const k in tokens)
+            for (const k of Object.keys(tokens)) {
                 width[k] = Math.max(width[k], repr(tokens[k]).length);
+            }
         }
         const lines = [[], []];
         for (const f of fields)
