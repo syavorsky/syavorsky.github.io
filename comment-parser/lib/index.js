@@ -90,6 +90,13 @@ var CommentParser = (function (exports) {
         return fence;
     }
 
+    // end marker overlaps the start marker, e.g. "/**/" is an empty plain comment
+    const isEmptyComment = (source, markers) => {
+        if (markers.start.includes(markers.end))
+            return false;
+        const end = source.indexOf(markers.end, 1);
+        return end !== -1 && end < markers.start.length;
+    };
     function getParser$2({ startLine = 0, markers = exports.Markers, } = {}) {
         let block = null;
         let num = startLine;
@@ -100,7 +107,8 @@ var CommentParser = (function (exports) {
             [tokens.start, rest] = splitSpace(rest);
             if (block === null &&
                 rest.startsWith(markers.start) &&
-                !rest.startsWith(markers.nostart)) {
+                !rest.startsWith(markers.nostart) &&
+                !isEmptyComment(rest, markers)) {
                 block = [];
                 tokens.delimiter = rest.slice(0, markers.start.length);
                 rest = rest.slice(markers.start.length);
